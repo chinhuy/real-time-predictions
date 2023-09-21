@@ -1,38 +1,34 @@
-# Streaming Thresholds and Alert:
+# Real time Predictions:
 ## Use Case
-### Input Kafka topic: real time exception logs
+### Input Kafka topic: real time user reviews
 ### Data format: json
 `
 {
-    'timestamp': '2023-09-20T05:20:39',
-    'level': "CRITICAL",
-    'code': "400",
-    'message': "This is a CRITICAL alert"
+    'review_id': "10000",
+    'content': "Movie was perfectly balanced with emotion,fun and entertainment"
 }
 `
 ### Goals:
-- when level = CRITICAL, send to a topic for critical alerts
-- Same code occurs > two times in 10 seconds, send summary to a topic for high-volume alerts
+- Use an HTTP service to predict sentiment of each review and publish the sentiments to an outgoing topic
 
 ## Design
 ```mermaid
 flowchart LR;
     kafka_input(Kafka Input)-->event(Json to Faust Stream);
-    event-->critical(Check If CRITICAL);
-    event-->window(Window by 10 sec);
-    critical-->toutput(Publish to CRITICAL topic);
-    window-->check2(Check > 2 and alerts by code)
-    check2-->tout2(Publish to High Volume topic);
+    event-->ex(Call External Service);
+    model(Pre-trained model)-->api(Sentiment service);
+    ex-->toutput(Kafka Output);
+    api-->ex;
 ```
 
 ## Implementation
-1. Producer service: generate order json data randomly and publish to kafka input
+1. Producer service: generate movie reviews json data randomly and publish to kafka input
 2. Consumer service: 
 * consume stream data
-* compare CRITICAL issue and publish to kafka
-* compute and check exception appear > 2 in each window 10 seconds and publish to kafka
+* call external sentiment service for each review and publish the result to kafka
 3. Kafka cluster
 4. Kafdrop tool for viewing messing in kafka
+5. Sentiment Service using Flask and vaderSentiment
 
 ## Testing
 - Assuming we are running docker service
@@ -57,3 +53,4 @@ docker-compose -f docker_compose.yml build
 ## References
 - https://faust-streaming.github.io/faust/playbooks/vskafka.html
 - https://github.com/faust-streaming/faust
+- https://www.geeksforgeeks.org/python-sentiment-analysis-using-vader/

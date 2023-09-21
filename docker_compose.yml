@@ -27,7 +27,7 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT'
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: '1'
-      KAFKA_CREATE_TOPICS: 'CRITICAL:1:1,HIGH-VOLUME:1:1,EXCEPTION-LOGS:1:1'
+      KAFKA_CREATE_TOPICS: 'MOVIE-REVIEWS:1:1,REVIEW-OUTPUT:1:1'
       KAFKA_ADVERTISED_HOST_NAME: '172.15.10.1' #host.docker.internal # change to 172.17.0.1 if running on Ubuntu
     image: 'wurstmeister/kafka:2.13-2.8.1'
     networks:
@@ -50,10 +50,11 @@ services:
   consumer:
     depends_on:
       - kafka
+      - sentiment
     environment:
-      TOPIC_INPUT: EXCEPTION-LOGS
-      TOPIC_CRITICAL: CRITICAL
-      TOPIC_HIGH_VOLUME: HIGH-VOLUME
+      TOPIC_INPUT: MOVIE-REVIEWS
+      TOPIC_OUTPUT: REVIEW-OUTPUT
+      SENTIMENT_SERVICE_URL: http://172.15.10.11:5000
       ENVIRONMENT: local
       INTERNAL_KAFKA_ADDR: '172.15.10.10:9092'
     build:
@@ -64,11 +65,29 @@ services:
     depends_on:
       - kafka
     environment:
-      TOPIC_INPUT: EXCEPTION-LOGS
+      TOPIC_INPUT: MOVIE-REVIEWS
       ENVIRONMENT: local
       INTERNAL_KAFKA_ADDR: '172.15.10.10:9092'
     build:
       context: ./producer
     networks:
       - sanet
+  sentiment:
+    ports:
+      - "5000:5000"
+    environment:
+      FLASK_DEBUG: 1
+      FLASK_APP: ./app.py
+      ENVIRONMENT: local
+      INTERNAL_KAFKA_ADDR: '172.15.10.10:9092'
+    build:
+      context: ./sentiment-service
+    networks:
+      sanet:
+        ipv4_address: 172.15.10.11
+    entrypoint:
+      - flask
+      - run
+      - --host=0.0.0.0
+    volumes: ['./sentiment-service:/app']
 volumes: {}

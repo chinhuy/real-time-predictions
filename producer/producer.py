@@ -1,9 +1,8 @@
 import json
-import random
+import random, math
 from kafka import KafkaProducer
 import os
 import time
-from datetime import datetime
 
 TOPIC = os.environ['TOPIC_INPUT']
 INTERNAL_KAFKA_ADDR = os.environ['INTERNAL_KAFKA_ADDR']
@@ -35,27 +34,18 @@ def connect_kafka_producer():
 
 
 if __name__ == '__main__':
-    levels = ('CRITICAL', 'HIGH', 'ELEVATED')
-    codes = (100, 200, 300, 400, 500)
-
-    now = datetime.now()
-    
 
     kafka_producer = connect_kafka_producer()
-    for index in range(0, 100):
-        level = levels[random.randint(0, 2)]
+
+    with open("movie-reviews.txt", "r+") as mfile:
+        for line in mfile.readlines():
+            message = {
+                'review_id': str(math.floor(time.time()/1000)),
+                'content': line.rstrip("\r\n"),
+            }
+            publish_message(kafka_producer, TOPIC, KEY, json.dumps(message))
+            time.sleep(random.randint(1, 3))
         
-        message = {
-            'timestamp': now.strftime("%Y-%m-%dT%H:%M:%S%z"), # ISO 8601 format with timezone offset,
-            'level': level,
-            'code': str(codes[random.randint(0, 4)]),
-            'message': "This is a {} alert".format(level),
-        }
-
-        publish_message(kafka_producer, TOPIC, KEY, json.dumps(message))
-
-        time.sleep(random.randint(1, 3))
-
-
+        
     if kafka_producer is not None:
         kafka_producer.close()
